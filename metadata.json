@@ -1,0 +1,8 @@
+{
+  "name": "SMART PAY",
+  "description": "Smart school administration system for PAUD & Sekolah, featuring real-time payment tracking, professional dashboards, Arrears tracking, and audit logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student record for attendance and payment tracking",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name of the student" },
+        "nis": { "type": "string", "description": "National Student ID" },
+        "parentName": { "type": "string", "description": "Name of parent" },
+        "classId": { "type": "string", "description": "ID of the class the student belongs to" },
+        "className": { "type": "string", "description": "Human readable class name" },
+        "profileUrl": { "type": "string", "description": "URL of student's photo" },
+        "isDeleted": { "type": "boolean", "default": false },
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "deletedBy": { "type": "string" }
+      },
+      "required": ["name", "classId"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Tuition payment record",
+      "type": "object",
+      "properties": {
+        "trxId": { "type": "string", "description": "Unique transaction ID TRX-YYYYMM-XXXX" },
+        "studentId": { "type": "string", "description": "Reference to the student" },
+        "studentName": { "type": "string", "description": "Cached student name" },
+        "month": { "type": "string", "description": "Month of payment (e.g., 'Juni 2024')" },
+        "amount": { "type": "number", "description": "Total amount paid in IDR" },
+        "subtotal": { "type": "number", "description": "Sum of all items before discount" },
+        "discount": { "type": "number", "description": "Discount or subsidy applied" },
+        "paymentItems": { 
+          "type": "array", 
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "type": { "type": "string", "description": "Category of payment (spp, sosial, or multi)" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "Payment status" },
+        "method": { "type": "string" },
+        "bankName": { "type": "string" },
+        "notes": { "type": "string" },
+        "proofUrl": { "type": "string", "description": "URL to the payment proof file" },
+        "approvedBy": { "type": "string", "description": "UID of the reviewer" },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "reviewNote": { "type": "string", "description": "Note from checker" },
+        "createdBy": { "type": "string", "description": "UID of the creator (staff)" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean", "default": false }
+      },
+      "required": ["studentId", "month", "amount", "status", "createdBy"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System activity logs",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "role": { "type": "string" },
+        "action": { "type": "string" },
+        "detail": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "timestamp"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "lockedMonths": { "type": "array", "items": { "type": "string" }, "description": "List of months that are locked" },
+        "version": { "type": "string" }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile and role management",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "ketua_unit", "staff"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of students"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Collection of payment records"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System activities"
+    },
+    "/app_config/main": {
+      "schema": "AppConfig",
+      "description": "Global settings"
+    }
+  }
+}

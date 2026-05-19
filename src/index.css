@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+
+  --color-primary: var(--primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  
+  --color-surface: var(--surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer base {
+  :root {
+    --primary: #65528a;
+    --primary-container: #ede7f6;
+    --on-primary-container: #211044;
+    
+    --secondary: #705d00;
+    --secondary-container: #fdd73b;
+    --on-secondary-container: #221b00;
+    
+    --surface: #f8f9ff;
+    --surface-container: #e5eeff;
+    --surface-container-low: #eef4ff;
+    --surface-container-high: #dfe9fa;
+    --surface-container-highest: #d9e3f4;
+    --surface-container-lowest: #ffffff;
+    
+    --on-surface: #121c28;
+    --on-surface-variant: #49454f;
+    
+    --outline: #7a7580;
+    --outline-variant: #cbc4d0;
+    
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+  }
+
+  .dark {
+    --primary: #d0bcff;
+    --primary-container: #4d3d71;
+    --on-primary-container: #eaddff;
+    
+    --secondary: #e3c500;
+    --secondary-container: #554600;
+    --on-secondary-container: #ffe264;
+    
+    --surface: #0f131a;
+    --surface-container: #1b202a;
+    --surface-container-low: #1d232d;
+    --surface-container-high: #252b36;
+    --surface-container-highest: #2d333f;
+    --surface-container-lowest: #141921;
+    
+    --on-surface: #e2e2e6;
+    --on-surface-variant: #cac4d0;
+    
+    --outline: #938f99;
+    --outline-variant: #49454f;
+    
+    --error: #ffb4ab;
+    --error-container: #93000a;
+  }
+
+  body {
+    @apply bg-surface text-on-surface font-sans transition-colors duration-300;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+

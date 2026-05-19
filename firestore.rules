@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // HELPERS
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isRole(roles) {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() in roles;
+    }
+
+    // -------------------------------------------------------------------------
+    // VALIDATIONS
+    // -------------------------------------------------------------------------
+    
+    function isValidUser(data) {
+      return data.email is string && data.role in ['owner', 'ketua_unit', 'staff'];
+    }
+
+    function isValidStudent(data) {
+      return data.name is string && data.name.size() <= 200 &&
+             data.classId is string && data.classId.size() <= 128;
+    }
+
+    function isValidPayment(data) {
+      return data.studentId is string && data.studentId.size() <= 128 &&
+             data.month is string && data.month.size() <= 50 &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.createdBy == request.auth.uid &&
+             data.isDeleted == false &&
+             (!('type' in data) || data.type is string) &&
+             (!('subtotal' in data) || data.subtotal is number) &&
+             (!('discount' in data) || data.discount is number) &&
+             (!('notes' in data) || data.notes is string) &&
+             (!('bankName' in data) || data.bankName is string) &&
+             (!('paymentItems' in data) || data.paymentItems is list) &&
+             (!('method' in data) || (data.method is string && data.method.size() < 100)) &&
+             (!('trxId' in data) || (data.trxId is string && data.trxId.size() <= 50)) &&
+             (!('proofUrl' in data) || (data.proofUrl is string && data.proofUrl.size() <= 1048576));
+    }
+
+    function isValidAppConfig(data) {
+      return data.lockedMonths is list;
+    }
+
+    function isValidAuditLog(data) {
+      return data.userId is string && 
+             data.action is string && 
+             data.timestamp is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // RULES
+    // -------------------------------------------------------------------------
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isRole(['owner', 'ketua_unit']));
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && (request.auth.uid == userId || isRole(['owner'])) && isValidUser(incoming());
+    }
+
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      allow create, update: if isRole(['owner', 'ketua_unit', 'staff']) && isValidStudent(incoming());
+      allow delete: if isRole(['owner', 'ketua_unit']);
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() && 
+                    isValidPayment(incoming()) && 
+                    incoming().status == 'pending' &&
+                    incoming().createdAt == request.time;
+                    
+      allow update: if isSignedIn() && (
+        // STAFF: Can edit their own if still pending (Soft delete is also an update)
+        (existing().createdBy == request.auth.uid && 
+         existing().status == 'pending' && 
+         (
+           // Regular Edit
+           (incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'subtotal', 'discount', 'paymentItems', 'notes', 'month', 'method', 'bankName', 'proofUrl', 'updatedAt', 'trxId', 'type']) && 
+            isValidPayment(incoming())) ||
+           // Soft Delete
+           (incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedAt', 'deletedBy', 'updatedAt']) &&
+            incoming().isDeleted == true &&
+            incoming().deletedBy == request.auth.uid)
+         )
+        ) ||
+         
+        // KETUA UNIT: Approve/Reject
+        (isRole(['ketua_unit', 'owner']) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedAt', 'rejectedReason', 'updatedAt', 'reviewNote']) &&
+         incoming().status in ['approved', 'rejected'] &&
+         incoming().approvedBy == request.auth.uid)
+      );
+
+      allow delete: if isRole(['owner']);
+    }
+
+    match /classes/{classId} {
+      allow read: if isSignedIn();
+      allow write: if isRole(['owner', 'ketua_unit']);
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isRole(['owner', 'ketua_unit']);
+      allow create: if isSignedIn() && isValidAuditLog(incoming());
+    }
+
+    match /app_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isRole(['owner']) && isValidAppConfig(incoming());
+    }
+
+    match /system/{docId} {
+      allow read: if isSignedIn();
+    }
+  }
+}
