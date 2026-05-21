@@ -16,19 +16,46 @@ import {
   Settings as SettingsIcon,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth, logoutUser } from '../lib/firebase';
 import { useTheme } from '../lib/theme';
+import { getQuotaStatus } from '../services/paymentService';
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const isCollapsed = false;
   const { user, role } = useAuth();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isQuotaExceeded, setIsQuotaExceeded] = React.useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = React.useState(
+    sessionStorage.getItem('smartpay_quota_dismissed') === 'true'
+  );
+
+  React.useEffect(() => {
+    setIsQuotaExceeded(getQuotaStatus());
+
+    const handleQuotaStatus = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setIsQuotaExceeded(customEvent.detail.exceeded);
+        // Reset dismissal if status turns on/off so user gets notified if state changes
+        if (customEvent.detail.exceeded) {
+          setIsBannerDismissed(sessionStorage.getItem('smartpay_quota_dismissed') === 'true');
+        }
+      }
+    };
+
+    window.addEventListener('firestore-quota-status', handleQuotaStatus);
+    return () => {
+      window.removeEventListener('firestore-quota-status', handleQuotaStatus);
+    };
+  }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['owner', 'ketua_unit', 'staff'] },
@@ -59,11 +86,31 @@ export default function Layout() {
   };
 
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
+  const mobileProfileRef = React.useRef<HTMLDivElement>(null);
+  const desktopProfileRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: Event) {
+      if (
+        isProfileOpen &&
+        (!mobileProfileRef.current || !mobileProfileRef.current.contains(event.target as Node)) &&
+        (!desktopProfileRef.current || !desktopProfileRef.current.contains(event.target as Node))
+      ) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isProfileOpen]);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col md:flex-row transition-colors duration-300">
+    <div className="min-h-screen bg-surface flex flex-col lg:flex-row transition-colors duration-300">
       {/* Mobile Top Bar */}
-      <header className="md:hidden flex justify-between items-center w-full px-4 h-16 bg-surface-container-lowest shadow-sm sticky top-0 z-50 transition-colors">
+      <header className="lg:hidden flex justify-between items-center w-full px-4 h-16 bg-surface-container-lowest border-b border-outline-variant/10 shadow-sm sticky top-0 z-50 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white overflow-hidden shadow-lg shadow-primary/20">
             <School className="w-6 h-6" />
@@ -71,15 +118,7 @@ export default function Layout() {
           <span className="text-primary font-display font-bold text-lg tracking-tight">SMART PAY</span>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
-            className="p-2 rounded-full hover:bg-surface-container transition-colors text-primary"
-            title="Toggle Theme"
-          >
-            {getThemeIcon()}
-          </button>
-          
-          <div className="relative">
+          <div className="relative" ref={mobileProfileRef}>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="w-10 h-10 rounded-full bg-primary-container overflow-hidden ring-2 ring-primary/10"
@@ -107,6 +146,18 @@ export default function Layout() {
                     <Lock className="w-4 h-4" /> Ubah Password
                   </button>
                   <div className="h-px bg-outline-variant/20 my-2 mx-2"></div>
+                  <div className="flex items-center justify-between px-3 py-1">
+                    <span className="text-xs font-bold text-on-surface-variant">Mode</span>
+                    <div className="flex p-0.5 bg-surface-container rounded-xl">
+                      <button onClick={() => setTheme('light')} className={cn("p-1.5 rounded-lg transition-all", theme === 'light' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")}>
+                        <Sun className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setTheme('dark')} className={cn("p-1.5 rounded-lg transition-all", theme === 'dark' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")}>
+                        <Moon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-px bg-outline-variant/20 my-2 mx-2"></div>
                   <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-error/10 rounded-xl text-sm font-bold text-error transition-colors">
                     <LogOut className="w-4 h-4" /> Logout
                   </button>
@@ -125,7 +176,7 @@ export default function Layout() {
       </header>
 
       {/* Desktop Top Bar */}
-      <header className="hidden md:flex justify-between items-center w-full px-12 h-20 bg-surface-container-lowest shadow-sm fixed top-0 left-0 z-40 transition-colors">
+      <header className="hidden lg:flex justify-between items-center w-full px-12 h-20 bg-surface-container-lowest border-b border-outline-variant/10 shadow-sm fixed top-0 left-0 z-40 transition-colors">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
@@ -136,20 +187,17 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex p-1 bg-surface-container rounded-2xl">
-             <button onClick={() => setTheme('light')} className={cn("p-2 rounded-xl transition-all", theme === 'light' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")}>
+             <button onClick={() => setTheme('light')} className={cn("p-2 rounded-xl transition-all", theme === 'light' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")} title="Light Mode">
                <Sun className="w-5 h-5" />
              </button>
-             <button onClick={() => setTheme('dark')} className={cn("p-2 rounded-xl transition-all", theme === 'dark' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")}>
+             <button onClick={() => setTheme('dark')} className={cn("p-2 rounded-xl transition-all", theme === 'dark' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")} title="Dark Mode">
                <Moon className="w-5 h-5" />
-             </button>
-             <button onClick={() => setTheme('system')} className={cn("p-2 rounded-xl transition-all", theme === 'system' ? "bg-surface text-primary shadow-sm" : "text-outline hover:text-on-surface")}>
-               <Monitor className="w-5 h-5" />
              </button>
           </div>
           <div className="w-px h-8 bg-outline-variant"></div>
           
           {/* Profile Dropdown Desktop */}
-          <div className="relative">
+          <div className="relative" ref={desktopProfileRef}>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center gap-3 p-1.5 pr-4 rounded-full hover:bg-surface-container transition-all group"
@@ -207,34 +255,40 @@ export default function Layout() {
       </header>
 
       {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex fixed left-0 top-20 h-[calc(100vh-80px)] w-72 bg-surface-container-low flex-col p-8 border-r border-outline-variant/10 transition-colors">
-        <div className="space-y-1 mt-4 overflow-y-auto max-h-[calc(100vh-200px)] no-scrollbar">
-          <p className="px-4 text-[10px] text-outline font-black uppercase tracking-[0.2em] mb-4 opacity-50">Menu Operasional</p>
+      <aside className={cn(
+        "hidden lg:flex fixed left-0 top-20 h-[calc(100vh-80px)] bg-surface-container-low flex-col p-6 border-r border-outline-variant/10 transition-all duration-300 z-30",
+        isCollapsed ? "w-20" : "w-72"
+      )}>
+        <div className="space-y-1 mt-4 overflow-y-auto max-h-[calc(100vh-140px)] no-scrollbar flex-1">
+          {!isCollapsed && <p className="px-4 text-[10px] text-outline font-black uppercase tracking-[0.2em] mb-4 opacity-50">Menu Operasional</p>}
           {filteredNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) => cn(
-                "flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold",
+                "relative flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold group",
                 isActive 
-                  ? "bg-primary text-white shadow-xl shadow-primary/25 scale-[1.03]" 
-                  : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                  ? "text-white" 
+                  : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface",
+                isCollapsed && "justify-center px-0 w-12 mx-auto"
               )}
+              title={isCollapsed ? item.name : undefined}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="text-sm tracking-tight">{item.name}</span>
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeNav" 
+                      className="absolute inset-0 bg-primary rounded-2xl shadow-xl shadow-primary/20 -z-10"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <item.icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110", isActive ? "text-white" : "text-outline group-hover:text-primary")} />
+                  {!isCollapsed && <span className="text-sm tracking-tight transition-opacity duration-300">{item.name}</span>}
+                </>
+              )}
             </NavLink>
           ))}
-        </div>
-        
-        <div className="mt-auto pt-6 border-t border-outline-variant/20">
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-4 px-4 py-3 text-error font-bold w-full hover:bg-error/10 rounded-2xl transition-all group"
-          >
-            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm">Keluar Sesi</span>
-          </button>
         </div>
       </aside>
 
@@ -247,14 +301,14 @@ export default function Layout() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsSidebarOpen(false)}
-              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
             />
             <motion.div 
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-80 bg-surface-container-lowest z-50 md:hidden flex flex-col p-6 shadow-2xl"
+              className="fixed inset-y-0 left-0 w-80 bg-surface-container-lowest z-50 lg:hidden flex flex-col p-6 shadow-2xl"
             >
               <div className="flex items-center gap-3 mb-10">
                 <School className="text-primary w-10 h-10" fill="currentColor" />
@@ -278,29 +332,47 @@ export default function Layout() {
                   </NavLink>
                 ))}
               </div>
-              <div className="mt-6 pt-6 border-t border-outline-variant/20">
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center gap-4 px-4 py-4 text-error font-bold hover:bg-error/5 rounded-2xl transition-all w-full"
-                >
-                  <LogOut className="w-6 h-6" />
-                  <span>Keluar</span>
-                </button>
-              </div>
+
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-grow md:pl-72 md:pt-20 pb-24 md:pb-8 transition-all duration-300">
+      <main className={cn(
+        "flex-grow lg:pt-20 pb-24 lg:pb-8 transition-all duration-300",
+        isCollapsed ? "lg:pl-20" : "lg:pl-72"
+      )}>
         <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 lg:p-12">
+          {isQuotaExceeded && !isBannerDismissed && (
+            <div className="bg-amber-500/10 dark:bg-amber-400/5 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-3xl p-5 mb-8 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500 relative">
+              <div className="p-2 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400 mt-0.5">
+                <AlertCircle className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="flex-1 pr-8">
+                <h4 className="font-bold text-sm tracking-tight">Pemberitahuan: Sistem Backup Cadangan Diaktifkan ⚡</h4>
+                <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1 leading-relaxed">
+                  Batas kuota harian database cloud gratis terpenuhi (Quota Exceeded). SMART PAY otomatis menjalankan <b>Mode Penyimpanan Mandiri (Offline-First Memory Cache)</b> secara aman. Seluruh data siswa, pembayaran, & log yang Anda input tetap tersimpan secara instan di browser Anda dan bisa dikelola secara normal! Anda juga dapat mengekspor atau memulihkan data tersebut dari menu Laporan.
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsBannerDismissed(true);
+                  sessionStorage.setItem('smartpay_quota_dismissed', 'true');
+                }}
+                className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-amber-500/15 active:bg-amber-500/20 text-amber-600 dark:text-amber-400 transition-colors cursor-pointer"
+                aria-label="Tutup pemberitahuan"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           <Outlet />
         </div>
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 w-full z-40 bg-surface-container-lowest/80 backdrop-blur-xl border-t border-outline-variant/20 flex justify-around items-center px-2 py-2 pb-8 md:hidden shadow-[0_-8px_20px_rgba(0,0,0,0.05)]">
+      <nav className="fixed bottom-0 left-0 w-full z-40 bg-surface-container-lowest/80 backdrop-blur-xl border-t border-outline-variant/20 flex justify-around items-center px-2 py-2 pb-8 lg:hidden shadow-[0_-8px_20px_rgba(0,0,0,0.05)]">
         {filteredNavItems.slice(0, 5).map((item) => {
           const isActive = location.pathname.startsWith(item.path);
           return (

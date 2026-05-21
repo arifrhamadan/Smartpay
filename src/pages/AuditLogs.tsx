@@ -85,13 +85,17 @@ export default function AuditLogs() {
                     <p className="text-xs font-black text-primary uppercase tracking-widest">{log.userName}</p>
                     <div className="flex items-center gap-1.5 text-[10px] text-outline font-bold mt-1 md:justify-end">
                       <Clock className="w-3 h-3" />
-                      {log.timestamp ? new Date(log.timestamp.toDate()).toLocaleString('id-ID', { 
-                        day: 'numeric', 
-                        month: 'short', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'Bara Saja'}
+                      {(() => {
+                        if (!log.timestamp) return 'Baru Saja';
+                        const val = log.timestamp.toDate ? log.timestamp.toDate() : (log.timestamp.seconds ? new Date(log.timestamp.seconds * 1000) : new Date(log.timestamp));
+                        return isNaN(val.getTime()) ? 'Baru Saja' : val.toLocaleString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>

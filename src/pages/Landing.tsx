@@ -78,7 +78,7 @@ export default function Landing() {
                   <User className="w-5 h-5" />
                 </div>
                 <input 
-                  className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium" 
+                  className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium" 
                   id="email" 
                   name="email" 
                   placeholder="Masukkan email" 
@@ -100,7 +100,7 @@ export default function Landing() {
                   <Lock className="w-5 h-5" />
                 </div>
                 <input 
-                  className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium" 
+                  className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium" 
                   id="password" 
                   name="password" 
                   placeholder="••••••••" 
@@ -139,8 +139,9 @@ export default function Landing() {
 
           <p className="mt-10 text-center text-on-surface-variant font-medium text-sm">
             Belum punya akun?{' '}
-            <Link to="/register" className="text-primary font-bold hover:underline transition-all">
+            <Link to="/register" className="text-primary font-extrabold transition-all duration-300 relative inline-block group hover:text-primary/90 pb-0.5">
               Daftar Sekarang
+              <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
             </Link>
           </p>
         </div>

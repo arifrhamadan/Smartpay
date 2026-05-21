@@ -112,7 +112,7 @@ export default function Register() {
                     </div>
                     <input 
                       type="text"
-                      className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium"
+                      className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium"
                       placeholder="Contoh: Aditya Pratama"
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
@@ -130,7 +130,7 @@ export default function Register() {
                     </div>
                     <input 
                       type="email"
-                      className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium"
+                      className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium"
                       placeholder="email@sekolah.com"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
@@ -149,7 +149,7 @@ export default function Register() {
                       </div>
                       <input 
                         type={showPassword ? "text" : "password"}
-                        className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium"
+                        className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium"
                         placeholder="••••••"
                         value={formData.password}
                         onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -165,7 +165,7 @@ export default function Register() {
                       </div>
                       <input 
                         type={showPassword ? "text" : "password"}
-                        className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border-none rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:bg-white transition-all outline-none font-medium"
+                        className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border border-outline-variant/10 rounded-2xl text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none font-medium"
                         placeholder="••••••"
                         value={formData.confirmPassword}
                         onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
@@ -226,8 +226,9 @@ export default function Register() {
           <div className="mt-8 text-center">
             <p className="text-on-surface-variant text-sm font-medium">
               Sudah punya akun?{' '}
-              <Link to="/login" className="text-primary font-bold hover:underline">
+              <Link to="/login" className="text-primary font-extrabold transition-all duration-300 relative inline-block group hover:text-primary/90 pb-0.5">
                 Masuk di sini
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
               </Link>
             </p>
           </div>

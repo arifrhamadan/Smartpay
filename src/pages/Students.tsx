@@ -20,6 +20,32 @@ import { studentService } from '../services/paymentService';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/firebase';
 import * as XLSX from 'xlsx';
+import { TypingText } from '../components/TypingText';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    } 
+  }
+};
 
 export default function Students() {
   const [students, setStudents] = useState<any[]>([]);
@@ -36,12 +62,23 @@ export default function Students() {
   const [isImportLoading, setIsImportLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const calculateFee = (studentType: string, meetingPackage: string) => {
+    if (studentType === 'Murid Baru') {
+      return meetingPackage === '16x' ? 325000 : 275000;
+    } else {
+      return meetingPackage === '16x' ? 300000 : 250000;
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     nis: '',
     parentName: '',
     classId: '',
-    className: ''
+    className: '',
+    studentType: 'Murid Lama',
+    meetingPackage: '12x',
+    monthlyFee: 250000
   });
 
   React.useEffect(() => {
@@ -70,12 +107,18 @@ export default function Students() {
 
   const editStudent = (student: any) => {
     setEditingStudent(student);
+    const sType = student.studentType === 'Baru' || student.studentType === 'Murid Baru' ? 'Murid Baru' : 'Murid Lama';
+    const mPkg = student.meetingPackage || student.packageType || '12x';
+    const fee = student.monthlyFee !== undefined ? student.monthlyFee : calculateFee(sType, mPkg);
     setFormData({
       name: student.name,
       nis: student.nis || '',
       parentName: student.parentName || '',
       classId: student.classId,
-      className: student.className
+      className: student.className,
+      studentType: sType,
+      meetingPackage: mPkg,
+      monthlyFee: fee
     });
     setIsModalOpen(true);
   };
@@ -96,7 +139,16 @@ export default function Students() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingStudent(null);
-    setFormData({ name: '', nis: '', parentName: '', classId: '', className: '' });
+    setFormData({ 
+      name: '', 
+      nis: '', 
+      parentName: '', 
+      classId: '', 
+      className: '',
+      studentType: 'Murid Lama',
+      meetingPackage: '12x',
+      monthlyFee: 250000
+    });
   };
 
   // Excel Handling
@@ -119,12 +171,23 @@ export default function Students() {
   const handleImport = async () => {
     setIsImportLoading(true);
     for (const item of importData) {
+      const rawType = item['studentType'] || item['Tipe Murid'] || item['Tipe'] || 'Murid Lama';
+      const studentType = (rawType.toLowerCase().includes('baru') || rawType === 'Murid Baru') ? 'Murid Baru' : 'Murid Lama';
+      
+      const rawPkg = String(item['meetingPackage'] || item['Paket'] || item['Sesi'] || '12x');
+      const meetingPackage = rawPkg.includes('16') ? '16x' : '12x';
+      
+      const monthlyFee = Number(item['monthlyFee']) || calculateFee(studentType, meetingPackage);
+
       const student = {
         name: item['Nama'] || item['Nama Siswa'] || 'Noname',
         nis: String(item['NIS'] || ''),
         parentName: item['Orang Tua'] || item['Nama Orang Tua'] || '',
         classId: item['ID Kelas'] || 'A1',
         className: item['Nama Kelas'] || item['Kelas'] || 'Umum',
+        studentType,
+        meetingPackage,
+        monthlyFee
       };
       await studentService.addStudent(student);
     }
@@ -136,7 +199,16 @@ export default function Students() {
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.json_to_sheet([
-      { 'Nama Siswa': 'Aditya Pratama', 'NIS': '1001', 'Nama Orang Tua': 'Pratama', 'ID Kelas': 'A1', 'Nama Kelas': 'A1 - Playgroup' }
+      { 
+        'Nama Siswa': 'Aditya Pratama', 
+        'NIS': '1001', 
+        'Nama Orang Tua': 'Pratama', 
+        'ID Kelas': 'A1', 
+        'Nama Kelas': 'A1 - Playgroup',
+        'studentType': 'Murid Lama',
+        'meetingPackage': '12x',
+        'monthlyFee': 250000
+      }
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');
@@ -144,41 +216,52 @@ export default function Students() {
   };
 
   return (
-    <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="space-y-8 pb-20"
+    >
+      <motion.header variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 className="text-on-surface font-display text-4xl font-bold mb-2">Manajemen Siswa</h2>
-          <p className="text-on-surface-variant font-medium text-lg italic opacity-80">Profesionalkan pendataan siswa sekolah Anda.</p>
+          <h2 className="text-on-surface font-display text-4xl font-bold mb-2 min-h-[44px]">
+            <TypingText text="Manajemen Siswa" />
+          </h2>
+          <p className="text-on-surface-variant font-medium text-lg italic opacity-80 animate-pulse-slow">Profesionalkan pendataan siswa sekolah Anda.</p>
         </div>
         <div className="flex gap-4">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setIsImportModalOpen(true)}
-            className="group px-6 py-3.5 bg-surface-container-high text-on-surface rounded-2xl font-bold flex items-center gap-3 hover:bg-surface-container-highest transition-all shadow-sm"
+            className="group px-6 py-3.5 bg-surface-container-high text-on-surface rounded-2xl font-bold flex items-center gap-3 hover:bg-surface-container-highest transition-all shadow-sm cursor-pointer"
           >
             <FileSpreadsheet className="w-5 h-5 text-green-600 group-hover:scale-110 transition-transform" />
             <span>Import Excel</span>
-          </button>
-          <button 
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setIsModalOpen(true)}
-            className="px-6 py-3.5 bg-primary text-white rounded-2xl font-bold flex items-center gap-3 hover:shadow-xl hover:shadow-primary/20 hover:scale-[1.02] transition-all"
+            className="px-6 py-3.5 bg-primary text-white rounded-2xl font-bold flex items-center gap-3 hover:shadow-xl hover:shadow-primary/20 transition-all cursor-pointer"
           >
             <Plus className="w-5 h-5" />
             <span>Tambah Siswa</span>
-          </button>
+          </motion.button>
         </div>
-      </header>
+      </motion.header>
 
       {/* Stats and Search Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-primary/5 p-6 rounded-[32px] border border-primary/10">
           <div className="flex items-center gap-3 mb-2">
-            <School className="w-5 h-5 text-primary" />
+            <School className="w-5 h-5 text-primary animate-bounce-slow" />
             <span className="text-[10px] font-black uppercase tracking-widest text-primary/60">Total Siswa Aktif</span>
           </div>
           <p className="text-3xl font-display font-bold text-primary">{students.length}</p>
         </div>
         
-        <div className="bg-surface-container-lowest p-2 rounded-[32px] border border-outline-variant/10 shadow-sm col-span-1 md:col-span-3 flex items-center">
+        <div className="bg-surface-container-lowest p-2 rounded-[32px] border border-outline-variant/10 shadow-sm col-span-1 md:col-span-3 flex items-center focus-within:border-primary/50 transition-all">
           <div className="relative flex-1">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-outline w-5 h-5" />
             <input 
@@ -190,7 +273,7 @@ export default function Students() {
             />
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
         <AnimatePresence mode="popLayout">
@@ -221,22 +304,45 @@ export default function Students() {
                   <span className="text-outline font-bold uppercase tracking-widest text-[10px]">Orang Tua</span>
                   <span className="font-bold text-on-surface-variant">{s.parentName || '-'}</span>
                 </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-outline font-bold uppercase tracking-widest text-[10px]">Tipe Murid</span>
+                  <span className={cn(
+                    "px-2.5 py-1 rounded-full text-xs font-bold",
+                    (s.studentType === 'Murid Baru' || s.studentType === 'Baru') ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-primary/10 text-primary dark:text-primary-light"
+                  )}>
+                    {s.studentType === 'Murid Baru' || s.studentType === 'Baru' ? 'Murid Baru' : 'Murid Lama'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-outline font-bold uppercase tracking-widest text-[10px]">Paket SPP</span>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-secondary/10 text-secondary">
+                    {`${s.meetingPackage || s.packageType || '12x'} Pertemuan`}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-outline font-bold uppercase tracking-widest text-[10px]">Tarif SPP</span>
+                  <span className="font-black text-primary font-display">Rp {(s.monthlyFee || 250000).toLocaleString('id-ID')}</span>
+                </div>
               </div>
 
               <div className="mt-8 pt-6 border-t border-outline-variant/10 flex gap-2">
-                <button 
+                <motion.button 
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => editStudent(s)}
-                  className="flex-1 py-3 px-4 bg-surface-container hover:bg-primary hover:text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all transition-colors"
+                  className="flex-1 py-3 px-4 bg-surface-container hover:bg-primary hover:text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
-                </button>
-                <button 
+                </motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => confirmDelete(s.id)}
-                  className="p-3 bg-error/5 text-error hover:bg-error hover:text-white rounded-2xl transition-all"
+                  className="p-3 bg-error/5 text-error hover:bg-error hover:text-white rounded-2xl transition-all cursor-pointer"
                 >
                   <Trash2 className="w-5 h-5" />
-                </button>
+                </motion.button>
               </div>
             </motion.div>
           )) : (
@@ -314,6 +420,61 @@ export default function Students() {
                       onChange={e => setFormData({...formData, className: e.target.value})}
                       placeholder="Kindergarten A1"
                     />
+                  </div>
+
+                  {/* Dropdown for Status Siswa */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] ml-2">Status Siswa</label>
+                    <select
+                      required
+                      className="w-full bg-surface-container rounded-2xl px-6 py-4 font-bold text-base focus:ring-4 focus:ring-primary/10 transition-all border-none text-on-surface cursor-pointer"
+                      value={formData.studentType}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setFormData({
+                          ...formData,
+                          studentType: newType,
+                          monthlyFee: calculateFee(newType, formData.meetingPackage)
+                        });
+                      }}
+                    >
+                      <option value="Murid Lama">Murid Lama</option>
+                      <option value="Murid Baru">Murid Baru</option>
+                    </select>
+                  </div>
+
+                  {/* Dropdown for Paket Pertemuan */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-outline uppercase tracking-[0.2em] ml-2">Paket Pertemuan</label>
+                    <select
+                      required
+                      className="w-full bg-surface-container rounded-2xl px-6 py-4 font-bold text-base focus:ring-4 focus:ring-primary/10 transition-all border-none text-on-surface cursor-pointer"
+                      value={formData.meetingPackage}
+                      onChange={(e) => {
+                        const newPkg = e.target.value;
+                        setFormData({
+                          ...formData,
+                          meetingPackage: newPkg,
+                          monthlyFee: calculateFee(formData.studentType, newPkg)
+                        });
+                      }}
+                    >
+                      <option value="12x">12x Pertemuan</option>
+                      <option value="16x">16x Pertemuan</option>
+                    </select>
+                  </div>
+
+                  {/* Visual Fee Preview */}
+                  <div className="col-span-full p-6 bg-primary/5 rounded-3xl border border-primary/10 flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest block">Tarif SPP Bulanan Terhitung</span>
+                      <p className="text-xs text-on-surface-variant font-medium mt-0.5">Ditetapkan berdasarkan tipe murid dan paket yang dipilih.</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-display font-black text-primary">
+                        Rp {formData.monthlyFee.toLocaleString('id-ID')}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 
@@ -418,7 +579,7 @@ export default function Students() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 

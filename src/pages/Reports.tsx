@@ -10,6 +10,7 @@ import {
   X, 
   FileText, 
   Download, 
+  Upload,
   FileSpreadsheet,
   Printer,
   CheckCircle2,
@@ -22,11 +23,44 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
   ResponsiveContainer, Cell 
 } from 'recharts';
-import { paymentService } from '../services/paymentService';
+import { paymentService, backupRestoreService } from '../services/paymentService';
 import { useAuth } from '../lib/firebase';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { TypingText } from '../components/TypingText';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    } 
+  }
+};
+
+const getSafeDateString = (createdAt: any, withTime = false) => {
+  if (!createdAt) return '-';
+  const val = createdAt.toDate ? createdAt.toDate() : (createdAt.seconds ? new Date(createdAt.seconds * 1000) : new Date(createdAt));
+  if (isNaN(val.getTime())) return '-';
+  return withTime ? val.toLocaleString('id-ID') : val.toLocaleDateString('id-ID');
+};
 
 export default function Reports() {
   const [reportData, setReportData] = useState<any[]>([]);
@@ -62,7 +96,7 @@ export default function Reports() {
     if (selectedType !== 'All') {
       const typeLower = selectedType.toLowerCase();
       matchType = p.type?.toLowerCase() === typeLower || 
-                  p.paymentItems?.some((i: any) => i.type.toLowerCase().includes(typeLower));
+                  p.paymentItems?.some((i: any) => i.type && i.type.toLowerCase().includes(typeLower));
     }
 
     return matchSearch && matchYear && matchMonth && matchStatus && matchType;
@@ -74,8 +108,8 @@ export default function Reports() {
   const getCategoryTotal = (category: string, dataset = approvedPayments) => {
     const target = dataset.filter(p => p.month?.includes(selectedYear.toString()));
     return target.reduce((acc, p) => {
-      const item = p.paymentItems?.find((i: any) => i.type.toLowerCase().includes(category.toLowerCase()));
-      if (item) return acc + item.amount;
+      const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes(category.toLowerCase()));
+      if (item) return acc + (item.amount || 0);
       return acc + (p.type?.toLowerCase() === category.toLowerCase() ? (p.amount || 0) : 0);
     }, 0);
   };
@@ -92,18 +126,18 @@ export default function Reports() {
     const monthPayments = approvedPayments.filter(p => p.month === monthYear);
     
     const spp = monthPayments.reduce((acc, p) => {
-      const item = p.paymentItems?.find((i: any) => i.type.toLowerCase().includes('spp'));
-      return acc + (item ? item.amount : (p.type?.toLowerCase() === 'spp' ? p.amount : 0));
+      const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('spp'));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'spp' ? (p.amount || 0) : 0));
     }, 0);
     
     const sosial = monthPayments.reduce((acc, p) => {
-      const item = p.paymentItems?.find((i: any) => i.type.toLowerCase().includes('sosial'));
-      return acc + (item ? item.amount : (p.type?.toLowerCase() === 'sosial' ? p.amount : 0));
+      const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('sosial'));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'sosial' ? (p.amount || 0) : 0));
     }, 0);
 
     const wisuda = monthPayments.reduce((acc, p) => {
-      const item = p.paymentItems?.find((i: any) => i.type.toLowerCase().includes('wisuda'));
-      return acc + (item ? item.amount : (p.type?.toLowerCase() === 'wisuda' ? p.amount : 0));
+      const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('wisuda'));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'wisuda' ? (p.amount || 0) : 0));
     }, 0);
 
     return {
@@ -140,10 +174,52 @@ export default function Reports() {
     }
   };
 
+  const handleExportBackup = async () => {
+    try {
+      const backup = await backupRestoreService.exportBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SMART_PAY_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Backup failed", error);
+      alert("Gagal mengekspor data backup.");
+    }
+  };
+
+  const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const confirmRestore = window.confirm("PERINGATAN: Memulihkan database dari file backup akan memperbarui data siswa, pembayaran, dan audit log. Apakah Anda yakin?");
+    if (!confirmRestore) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const backupData = JSON.parse(text);
+        
+        await backupRestoreService.restoreBackup(backupData);
+        alert("Database berhasil dipulihkan dari backup.");
+        window.location.reload();
+      } catch (error: any) {
+        console.error("Restore failed", error);
+        alert("Format file tidak valid atau gagal mentransfer data.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const exportToExcel = () => {
     const data = filteredData.map(p => ({
       'No Transaksi': p.trxId || '-',
-      'Tanggal': p.createdAt?.toDate ? p.createdAt.toDate().toLocaleDateString() : '-',
+      'Tanggal': getSafeDateString(p.createdAt),
       'Nama Siswa': p.studentName,
       'Bulan': p.month,
       'Metode': p.method || '-',
@@ -211,31 +287,42 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="space-y-8 pb-20"
+    >
+      <motion.header variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mr-1">
         <div>
-          <h2 className="text-on-surface font-display text-4xl font-bold mb-2">Laporan Keuangan</h2>
-          <p className="text-on-surface-variant text-lg font-medium">Rekapitulasi pembayaran dan validasi keuangan sekolah.</p>
+          <h2 className="text-on-surface font-display text-4xl font-bold mb-2 min-h-[44px]">
+            <TypingText text="Laporan Keuangan" />
+          </h2>
+          <p className="text-on-surface-variant text-lg font-medium opacity-80 animate-pulse-slow">Rekapitulasi pembayaran dan validasi keuangan sekolah.</p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
             onClick={exportToExcel}
-            className="bg-green-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all"
+            className="bg-green-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 shadow-lg shadow-green-600/20 transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-5 h-5" />
             <span>Excel Report</span>
-          </button>
+          </motion.button>
           {role === 'owner' && (
-            <button 
+            <motion.button 
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setIsResetConfirmOpen(true)}
-              className="bg-error/10 text-error px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 hover:bg-error hover:text-white transition-all group"
+              className="bg-error/10 text-error px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 hover:bg-error hover:text-white transition-all group cursor-pointer"
             >
               <RotateCcw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
               <span>Reset Data</span>
-            </button>
+            </motion.button>
           )}
         </div>
-      </header>
+      </motion.header>
 
       {/* Analytics Summary - Ketua Unit Style */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -312,6 +399,35 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Administrative Backup Controls */}
+      {role === 'owner' && (
+        <div className="bg-surface-container-low rounded-[40px] p-8 border border-outline-variant/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div>
+            <h3 className="text-xl font-display font-bold text-on-surface">Pusat Backup & Pemulihan</h3>
+            <p className="text-[10px] font-black text-outline uppercase tracking-widest mt-1">Ekspor, Impor, dan Pulihkan Seluruh Basis Data SMART PAY</p>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <button 
+              onClick={handleExportBackup}
+              className="bg-primary hover:bg-primary/90 text-white hover:scale-[1.02] active:scale-[0.98] px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all text-sm shadow-md"
+            >
+              <Download className="w-4.5 h-4.5" />
+              <span>Ekspor Backup JSON</span>
+            </button>
+            <label className="bg-secondary text-white hover:bg-secondary/90 hover:scale-[1.02] active:scale-[0.98] px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all cursor-pointer text-sm shadow-md">
+              <Upload className="w-4.5 h-4.5" />
+              <span>Pulihkan dari JSON</span>
+              <input 
+                type="file" 
+                accept=".json" 
+                className="hidden" 
+                onChange={handleRestoreBackup} 
+              />
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Enhanced Filters Section */}
       <div className="bg-surface-container-high rounded-[40px] p-8 border border-outline-variant/10 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -324,7 +440,7 @@ export default function Reports() {
                   placeholder="Nama Siswa..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-white rounded-2xl pl-11 pr-4 py-3.5 font-bold text-sm outline-none shadow-sm"
+                  className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/10 rounded-2xl pl-11 pr-4 py-3.5 font-bold text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
            </div>
@@ -334,10 +450,10 @@ export default function Reports() {
               <select 
                 value={selectedMonth} 
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full bg-white rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none"
+                className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/10 rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
               >
-                 <option value="">Semua Bulan</option>
-                 {monthsArr.map(m => <option key={m} value={m}>{m}</option>)}
+                 <option className="bg-surface-container text-on-surface" value="">Semua Bulan</option>
+                 {monthsArr.map(m => <option className="bg-surface-container text-on-surface" key={m} value={m}>{m}</option>)}
               </select>
            </div>
 
@@ -346,12 +462,12 @@ export default function Reports() {
               <select 
                 value={selectedType} 
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full bg-white rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none"
+                className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/10 rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
               >
-                 <option value="All">Semua Kategori</option>
-                 <option value="SPP">SPP</option>
-                 <option value="Sosial">Dana Sosial</option>
-                 <option value="Wisuda">Wisuda</option>
+                 <option className="bg-surface-container text-on-surface" value="All">Semua Kategori</option>
+                 <option className="bg-surface-container text-on-surface" value="SPP">SPP</option>
+                 <option className="bg-surface-container text-on-surface" value="Sosial">Dana Sosial</option>
+                 <option className="bg-surface-container text-on-surface" value="Wisuda">Wisuda</option>
               </select>
            </div>
 
@@ -360,12 +476,12 @@ export default function Reports() {
               <select 
                 value={selectedStatus} 
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full bg-white rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none"
+                className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/10 rounded-2xl px-5 py-3.5 font-bold text-sm shadow-sm outline-none focus:ring-2 focus:ring-primary/20"
               >
-                 <option value="All">Semua Status</option>
-                 <option value="Approved">Lunas</option>
-                 <option value="Pending">Proses</option>
-                 <option value="Rejected">Ditolak</option>
+                 <option className="bg-surface-container text-on-surface" value="All">Semua Status</option>
+                 <option className="bg-surface-container text-on-surface" value="Approved">Lunas</option>
+                 <option className="bg-surface-container text-on-surface" value="Pending">Proses</option>
+                 <option className="bg-surface-container text-on-surface" value="Rejected">Ditolak</option>
               </select>
            </div>
         </div>
@@ -390,7 +506,7 @@ export default function Reports() {
                 className="group bg-surface-container-low/50 hover:bg-surface-container-low p-5 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer border border-transparent hover:border-outline-variant/10 transition-all"
               >
                 <div className="flex items-center gap-5">
-                   <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-primary shadow-sm group-hover:scale-105 transition-transform duration-300">
+                   <div className="w-14 h-14 rounded-2xl bg-surface-container-lowest border border-outline-variant/15 flex items-center justify-center text-primary shadow-sm group-hover:scale-105 transition-transform duration-300">
                       <User className="w-7 h-7" />
                    </div>
                    <div>
@@ -401,7 +517,7 @@ export default function Reports() {
                       <p className="text-xs font-bold text-on-surface-variant flex items-center gap-1.5 mt-1">
                         <Calendar className="w-3 h-3 text-primary" /> {p.month}
                         <span className="mx-2 opacity-20">|</span>
-                        <Clock className="w-3 h-3 text-secondary" /> {p.createdAt?.toDate ? p.createdAt.toDate().toLocaleDateString() : 'Bawaan System'}
+                        <Clock className="w-3 h-3 text-secondary" /> {getSafeDateString(p.createdAt)}
                       </p>
                    </div>
                 </div>
@@ -494,7 +610,7 @@ export default function Reports() {
                     </div>
                    <div className="bg-surface-container p-5 rounded-3xl col-span-2">
                       <p className="text-[9px] font-black text-outline uppercase tracking-widest mb-1">Waktu Transaksi</p>
-                      <p className="font-bold text-on-surface text-sm">{selectedPayment.createdAt?.toDate ? selectedPayment.createdAt.toDate().toLocaleString() : '-'}</p>
+                      <p className="font-bold text-on-surface text-sm">{getSafeDateString(selectedPayment.createdAt, true)}</p>
                    </div>
                 </div>
 
@@ -614,6 +730,6 @@ export default function Reports() {
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
