@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cachedRole) {
           setRole(cachedRole);
           localStorage.setItem('userRole', cachedRole);
+          console.log(`[ROLE DEBUG] AuthStateChanged (Login/Load). UID: ${uid}, Loaded cachedRole: ${cachedRole}`);
         }
 
         try {
@@ -138,30 +139,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const fetchedName = data.name || data.displayName || '';
             const fetchedPhoto = data.photoURL || '';
 
-            setRole(fetchedRole);
-            localStorage.setItem(`smartpay_role_${uid}`, fetchedRole);
-            localStorage.setItem('userRole', fetchedRole);
+            console.log(`[ROLE DEBUG] Fetched profile from Firestore. UID: ${uid}, Fetched Role: ${fetchedRole}`);
+
+            if (fetchedRole) {
+              setRole(fetchedRole);
+              localStorage.setItem(`smartpay_role_${uid}`, fetchedRole);
+              localStorage.setItem('userRole', fetchedRole);
+            }
 
             if (fetchedName) localStorage.setItem(`smartpay_name_${uid}`, fetchedName);
             if (fetchedPhoto) localStorage.setItem(`smartpay_photo_${uid}`, fetchedPhoto);
 
             setUser(createEnrichedUser(firebaseUser, fetchedName, fetchedPhoto));
           } else {
-            // Check if we should auto-create (fallback for old users)
-            const defaultRole = 'staff';
-            try {
-              await setDoc(userDocRef, {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                name: firebaseUser.displayName || 'User',
-                role: defaultRole,
-                createdAt: serverTimestamp()
-              }, { merge: true });
-              setRole(defaultRole);
-              localStorage.setItem(`smartpay_role_${uid}`, defaultRole);
-              localStorage.setItem('userRole', defaultRole);
-            } catch (e) {
-              console.error("Auto-create role failed:", e);
+            console.warn(`[ROLE DEBUG] User document not found in Firestore for UID: ${uid}. Checking cachedRole:`, cachedRole);
+            if (cachedRole) {
+              setRole(cachedRole);
+            } else {
+              setRole(null);
             }
           }
         } catch (error: any) {
@@ -172,19 +167,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem('smartpay_quota_exceeded', 'true');
             window.dispatchEvent(new CustomEvent('firestore-quota-status', { detail: { exceeded: true } }));
           } else {
-            console.error("Error fetching user role:", error);
+            console.error(`[ROLE DEBUG] Error fetching user role from Firestore:`, error);
           }
           
           if (cachedRole) {
             setRole(cachedRole);
+            console.log(`[ROLE DEBUG] Fallback to cachedRole on fetch error. Cached: ${cachedRole}`);
           } else {
-            setRole('staff'); // Fallback to staff if fetch fails and no cache
+            setRole(null);
           }
         }
       } else {
-        setUser(null);
-        setRole(null);
-        localStorage.removeItem('userRole');
+        const cachedGuestStr = localStorage.getItem('smartpay_guest_user');
+        if (cachedGuestStr) {
+          try {
+            const guest = JSON.parse(cachedGuestStr);
+            setUser({
+              uid: guest.uid,
+              email: guest.email,
+              displayName: guest.displayName,
+              photoURL: guest.photoURL || '',
+              emailVerified: true,
+              phoneNumber: null,
+              isAnonymous: false,
+              metadata: {},
+              providerData: [],
+            } as any);
+            setRole(guest.role);
+            localStorage.setItem('userRole', guest.role);
+          } catch (e) {
+            setUser(null);
+            setRole(null);
+            localStorage.removeItem('userRole');
+          }
+        } else {
+          setUser(null);
+          setRole(null);
+          localStorage.removeItem('userRole');
+        }
       }
       setLoading(false);
     });
@@ -204,6 +224,7 @@ export const useAuth = () => useContext(AuthContext);
  */
 export const registerUser = async (email: string, pass: string, name: string, role: 'owner' | 'ketua_unit' | 'staff') => {
   sessionStorage.setItem('is_registering', 'true');
+  console.log(`[ROLE DEBUG] registerUser triggered. Email: ${email}, Name: ${name}, Role chosen: ${role}`);
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
@@ -216,6 +237,7 @@ export const registerUser = async (email: string, pass: string, name: string, ro
         role,
         createdAt: serverTimestamp()
       });
+      console.log(`[ROLE DEBUG] User document stored in Firestore with role: ${role}`);
     } catch (error) {
       console.warn("Could not save registered user to cloud due to quota or other error:", error);
       const msg = String(error?.message || error || '').toLowerCase();
@@ -226,6 +248,7 @@ export const registerUser = async (email: string, pass: string, name: string, ro
     }
     localStorage.setItem(`smartpay_role_${userCredential.user.uid}`, role);
     localStorage.setItem('userRole', role);
+    console.log(`[ROLE DEBUG] Registration successful. Cached user role local storage values: ${role}`);
     await signOut(auth);
     return userCredential.user;
   } finally {
@@ -252,6 +275,7 @@ export const loginUser = async (email: string, pass: string) => {
  */
 export const logoutUser = async () => {
   try {
+    localStorage.removeItem('smartpay_guest_user');
     await signOut(auth);
   } catch (e) {
     console.error("Logout error", e);

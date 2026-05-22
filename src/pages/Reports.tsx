@@ -15,7 +15,8 @@ import {
   Printer,
   CheckCircle2,
   XCircle,
-  MessageSquare
+  MessageSquare,
+  Archive
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -84,18 +85,74 @@ export default function Reports() {
     return () => unsubscribe();
   }, []);
 
+  const INDO_MONTHS_LIST = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const monthsArr = INDO_MONTHS_LIST;
+
+  const getPaymentMonthAndYear = (p: any) => {
+    let monthName = '';
+    let year = 2026;
+
+    if (p.month && typeof p.month === 'string') {
+      const parts = p.month.trim().split(/[\s,]+/);
+      if (parts.length >= 1) {
+        let rawMonth = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
+        const englishToIndo: Record<string, string> = {
+          'January': 'Januari', 'February': 'Februari', 'March': 'Maret', 'April': 'April',
+          'May': 'Mei', 'June': 'Juni', 'July': 'Juli', 'August': 'Agustus', 'September': 'September',
+          'October': 'Oktober', 'November': 'November', 'December': 'Desember'
+        };
+        if (englishToIndo[rawMonth]) {
+          rawMonth = englishToIndo[rawMonth];
+        }
+        monthName = rawMonth;
+        
+        if (parts.length >= 2) {
+          let yearStr = parts[1].replace(/[^0-9]/g, '');
+          let parsedYear = parseInt(yearStr);
+          if (!isNaN(parsedYear)) {
+            if (parsedYear < 100) {
+              parsedYear += 2000;
+            }
+            year = parsedYear;
+          }
+        }
+      }
+    }
+
+    // Fallback if month is still not set or invalid
+    if (!monthName || !INDO_MONTHS_LIST.includes(monthName)) {
+      if (p.createdAt) {
+        const d = p.createdAt.toDate 
+          ? p.createdAt.toDate() 
+          : (p.createdAt.seconds ? new Date(p.createdAt.seconds * 1000) : new Date(p.createdAt));
+        if (!isNaN(d.getTime())) {
+          monthName = INDO_MONTHS_LIST[d.getMonth()];
+          year = d.getFullYear();
+        }
+      }
+    }
+
+    if (!monthName) {
+      monthName = 'Januari';
+    }
+
+    return { monthName, year };
+  };
+
   // Filter Logic
   const filteredData = reportData.filter(p => {
     const matchSearch = p.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                        (p.trxId && p.trxId.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchYear = p.month?.includes(selectedYear.toString());
-    const matchMonth = selectedMonth === '' || p.month?.startsWith(selectedMonth);
+    
+    const { monthName, year } = getPaymentMonthAndYear(p);
+    const matchYear = year === selectedYear;
+    const matchMonth = selectedMonth === '' || monthName === selectedMonth;
     const matchStatus = selectedStatus === 'All' || p.status === selectedStatus.toLowerCase();
     
     let matchType = true;
     if (selectedType !== 'All') {
       const typeLower = selectedType.toLowerCase();
-      matchType = p.type?.toLowerCase() === typeLower || 
+      matchType = p.type?.toLowerCase().includes(typeLower) || 
                   p.paymentItems?.some((i: any) => i.type && i.type.toLowerCase().includes(typeLower));
     }
 
@@ -106,38 +163,48 @@ export default function Reports() {
   const approvedPayments = reportData.filter(p => p.status === 'approved');
 
   const getCategoryTotal = (category: string, dataset = approvedPayments) => {
-    const target = dataset.filter(p => p.month?.includes(selectedYear.toString()));
+    const target = dataset.filter(p => {
+      const { year } = getPaymentMonthAndYear(p);
+      return year === selectedYear;
+    });
     return target.reduce((acc, p) => {
       const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes(category.toLowerCase()));
       if (item) return acc + (item.amount || 0);
-      return acc + (p.type?.toLowerCase() === category.toLowerCase() ? (p.amount || 0) : 0);
+      return acc + (p.type?.toLowerCase().includes(category.toLowerCase()) ? (p.amount || 0) : 0);
     }, 0);
   };
 
   const totalSPP = getCategoryTotal('spp');
   const totalSosial = getCategoryTotal('sosial');
   const totalWisuda = getCategoryTotal('wisuda');
-  const totalOverall = totalSPP + totalSosial + totalWisuda;
+  const totalCuti = getCategoryTotal('cuti');
+  const totalOverall = totalSPP + totalSosial + totalWisuda + totalCuti;
 
   // Monthly breakdown for selected year
-  const monthsArr = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  const chartData = monthsArr.map(m => {
-    const monthYear = `${m} ${selectedYear}`;
-    const monthPayments = approvedPayments.filter(p => p.month === monthYear);
+  const chartData = INDO_MONTHS_LIST.map(m => {
+    const monthPayments = approvedPayments.filter(p => {
+      const { monthName, year } = getPaymentMonthAndYear(p);
+      return monthName === m && year === selectedYear;
+    });
     
     const spp = monthPayments.reduce((acc, p) => {
       const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('spp'));
-      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'spp' ? (p.amount || 0) : 0));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase().includes('spp') ? (p.amount || 0) : 0));
     }, 0);
     
     const sosial = monthPayments.reduce((acc, p) => {
       const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('sosial'));
-      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'sosial' ? (p.amount || 0) : 0));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase().includes('sosial') ? (p.amount || 0) : 0));
     }, 0);
 
     const wisuda = monthPayments.reduce((acc, p) => {
       const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('wisuda'));
-      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase() === 'wisuda' ? (p.amount || 0) : 0));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase().includes('wisuda') ? (p.amount || 0) : 0));
+    }, 0);
+
+    const cuti = monthPayments.reduce((acc, p) => {
+      const item = p.paymentItems?.find((i: any) => i && i.type && i.type.toLowerCase().includes('cuti'));
+      return acc + (item ? (item.amount || 0) : (p.type?.toLowerCase().includes('cuti') ? (p.amount || 0) : 0));
     }, 0);
 
     return {
@@ -145,8 +212,12 @@ export default function Reports() {
       SPP: spp,
       Sosial: sosial,
       Wisuda: wisuda,
+      Cuti: cuti,
+      Total: spp + sosial + wisuda + cuti
     };
   });
+
+  const isChartEmpty = chartData.reduce((acc, item) => acc + item.Total, 0) === 0;
 
   const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected') => {
     try {
@@ -293,36 +364,28 @@ export default function Reports() {
       animate="show"
       className="space-y-8 pb-20"
     >
-      <motion.header variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mr-1">
-        <div>
-          <h2 className="text-on-surface font-display text-4xl font-bold mb-2 min-h-[44px]">
-            <TypingText text="Laporan Keuangan" />
-          </h2>
-          <p className="text-on-surface-variant text-lg font-medium opacity-80 animate-pulse-slow">Rekapitulasi pembayaran dan validasi keuangan sekolah.</p>
-        </div>
-        <div className="flex gap-3">
+      <div className="flex justify-end gap-3 mb-6">
+        <motion.button 
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={exportToExcel}
+          className="bg-green-600 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-green-600/10 transition-all cursor-pointer text-xs"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Excel Report</span>
+        </motion.button>
+        {role === 'owner' && (
           <motion.button 
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={exportToExcel}
-            className="bg-green-600 text-white px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 shadow-lg shadow-green-600/20 transition-all cursor-pointer"
+            onClick={() => setIsResetConfirmOpen(true)}
+            className="bg-error/10 text-error px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-error hover:text-white transition-all group cursor-pointer text-xs"
           >
-            <FileSpreadsheet className="w-5 h-5" />
-            <span>Excel Report</span>
+            <RotateCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+            <span>Reset Data</span>
           </motion.button>
-          {role === 'owner' && (
-            <motion.button 
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setIsResetConfirmOpen(true)}
-              className="bg-error/10 text-error px-6 py-3.5 rounded-2xl font-bold flex items-center gap-3 hover:bg-error hover:text-white transition-all group cursor-pointer"
-            >
-              <RotateCcw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-              <span>Reset Data</span>
-            </motion.button>
-          )}
-        </div>
-      </motion.header>
+        )}
+      </div>
 
       {/* Analytics Summary - Ketua Unit Style */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -344,7 +407,18 @@ export default function Reports() {
            </div>
            
            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              {isChartEmpty ? (
+                 <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-surface-container/10 rounded-[32px] border border-dashed border-outline-variant/20 animate-in fade-in zoom-in duration-500">
+                    <div className="w-12 h-12 bg-outline-variant/25 rounded-full flex items-center justify-center text-outline mb-3">
+                       <Archive className="w-6 h-6 opacity-45" />
+                    </div>
+                    <h4 className="text-sm font-bold text-on-surface">Belum ada data pemasukan pada periode ini</h4>
+                    <p className="text-[11px] text-outline max-w-sm mt-1 mb-2 leading-relaxed opacity-80">
+                       Semua grafik pemasukan lunas tahun {selectedYear} akan tampil secara dinamis di sini.
+                    </p>
+                 </div>
+               ) : (
+                  <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#E5E7EB" strokeOpacity={0.3} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 10, fontWeight: 900 }} />
@@ -368,10 +442,12 @@ export default function Reports() {
                       }}
                     />
                     <Bar dataKey="SPP" stackId="a" fill="#65528A" radius={[0, 0, 0, 0]} />
+                     <Bar dataKey="Cuti" stackId="a" fill="#D97706" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="Sosial" stackId="a" fill="#006A60" radius={[0, 0, 0, 0]} />
-                    <Bar dataKey="Wisuda" stackId="a" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Wisuda" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} />
                  </BarChart>
               </ResponsiveContainer>
+               )}
            </div>
         </div>
 
@@ -394,6 +470,10 @@ export default function Reports() {
               <div className="flex items-center justify-between">
                  <p className="text-[10px] font-black text-outline uppercase tracking-widest">Total Wisuda</p>
                  <p className="font-display font-bold text-blue-600">Rp {totalWisuda.toLocaleString()}</p>
+               </div>
+               <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-outline uppercase tracking-widest">Dana Cuti</p>
+                  <p className="font-display font-bold text-amber-600">Rp {totalCuti.toLocaleString()}</p>
               </div>
            </div>
         </div>

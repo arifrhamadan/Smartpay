@@ -81,7 +81,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isRole(['owner', 'ketua_unit']));
       allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
-      allow update: if isSignedIn() && (request.auth.uid == userId || isRole(['owner'])) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        isRole(['owner']) ||
+        (request.auth.uid == userId && 
+         isValidUser(incoming()) && 
+         incoming().role == existing().role)
+      );
     }
 
     match /students/{studentId} {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { CrispAvatar } from './CrispAvatar';
 import { 
   LayoutDashboard, 
   WalletCards, 
@@ -24,6 +25,38 @@ import { cn } from '../lib/utils';
 import { useAuth, logoutUser } from '../lib/firebase';
 import { useTheme } from '../lib/theme';
 import { getQuotaStatus } from '../services/paymentService';
+import { TypingText } from './TypingText';
+
+const pageConfigs: Record<string, { title: string; subtitle: string }> = {
+  '/dashboard': {
+    title: 'Monitoring Pemasukan 📊',
+    subtitle: 'Selamat datang kembali di SMART PAY.',
+  },
+  '/students': {
+    title: 'Manajemen Data Siswa 👨‍🎓',
+    subtitle: 'Kelola data registrasi, kelas, dan status keaktifan siswa.',
+  },
+  '/payments': {
+    title: 'Input Pembayaran 💳',
+    subtitle: 'Input beberapa transaksi dan tagihan dengan aman.',
+  },
+  '/arrears': {
+    title: 'Monitoring Tunggakan ⚠️',
+    subtitle: 'Otorisasi pemantauan tagihan murid yang tertunda atau belum lunas.',
+  },
+  '/reports': {
+    title: 'Laporan Keuangan 📑',
+    subtitle: 'Analisis arus kas, cetak kwitansi, dan ekspor rincian laporan.',
+  },
+  '/audit-logs': {
+    title: 'Audit Aktivitas Sistem 🛡️',
+    subtitle: 'Rekaman jejak aktivitas operasional pengguna pada sistem.',
+  },
+  '/profile': {
+    title: 'Profil Pengguna 👤',
+    subtitle: 'Kelola rincian akun dan preferensi keamanan Anda.',
+  }
+};
 
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -121,15 +154,9 @@ export default function Layout() {
           <div className="relative" ref={mobileProfileRef}>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-10 h-10 rounded-full bg-primary-container overflow-hidden ring-2 ring-primary/10"
+              className="outline-hidden focus:scale-105 transition-transform duration-200"
             >
-              {user?.photoURL ? (
-                <img src={user.photoURL} className="w-full h-full object-cover" alt="Profile" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold text-sm">
-                  {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'A'}
-                </div>
-              )}
+              <CrispAvatar src={user?.photoURL} name={user?.displayName} email={user?.email} sizeClassName="w-10 h-10" />
             </button>
             <AnimatePresence>
               {isProfileOpen && (
@@ -200,17 +227,9 @@ export default function Layout() {
           <div className="relative" ref={desktopProfileRef}>
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-3 p-1.5 pr-4 rounded-full hover:bg-surface-container transition-all group"
+              className="flex items-center gap-3 p-1.5 pr-4 rounded-full hover:bg-surface-container transition-all group outline-none"
             >
-              <div className="w-10 h-10 rounded-full bg-primary-container overflow-hidden ring-2 ring-primary/10 transition-transform group-hover:scale-95">
-                 {user?.photoURL ? (
-                   <img src={user.photoURL} className="w-full h-full object-cover" alt="Profile" />
-                 ) : (
-                   <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold">
-                     {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'A'}
-                   </div>
-                 )}
-              </div>
+              <CrispAvatar src={user?.photoURL} name={user?.displayName} email={user?.email} sizeClassName="w-10 h-10 transition-transform group-hover:scale-95" />
               <div className="text-left">
                 <p className="text-on-surface font-bold text-sm leading-tight">{user?.displayName || 'User Admin'}</p>
                 <p className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">{(role || 'Staff').replace('_', ' ')}</p>
@@ -367,6 +386,50 @@ export default function Layout() {
               </button>
             </div>
           )}
+          
+          {(() => {
+            const getPageConfig = (pathname: string) => {
+              if (pathname.startsWith('/payments/')) {
+                return {
+                  title: 'Detail Pembayaran Kelas 💳',
+                  subtitle: 'Pantau dan catat transaksi pembayaran kelas secara mendalam.'
+                };
+              }
+              return pageConfigs[pathname] || {
+                title: 'SMART PAY 📊',
+                subtitle: 'Aplikasi pengelolaan keuangan sekolah terpadu.'
+              };
+            };
+            const config = getPageConfig(location.pathname);
+            const userShortName = user?.displayName?.split(' ')[0] || 'User';
+
+            return (
+              <motion.div 
+                key={location.pathname}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+                className="mb-8 md:mb-10 bg-gradient-to-br from-primary/[0.04] to-secondary/[0.02] rounded-[32px] p-6 sm:p-8 md:p-10 border border-outline-variant/10 shadow-xs relative overflow-hidden group hover:shadow-md transition-shadow"
+              >
+                {/* Ambient background accent shapes */}
+                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-primary/8 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
+                <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-36 h-36 bg-secondary/8 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-1000"></div>
+
+                <div className="relative z-10 space-y-2.5">
+                  <span className="flex items-center gap-2 text-primary font-display font-black text-xs sm:text-sm uppercase tracking-widest leading-none">
+                    Hi, {userShortName} <span className="animate-bounce">👋</span>
+                  </span>
+                  <h2 className="text-on-surface font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight leading-none min-h-[40px] sm:min-h-[48px] py-1 flex items-center">
+                    <TypingText text={config.title} speed={50} />
+                  </h2>
+                  <p className="text-on-surface-variant font-medium text-xs sm:text-sm md:text-base opacity-85 leading-relaxed max-w-2xl">
+                    {config.subtitle}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })()}
+
           <Outlet />
         </div>
       </main>

@@ -78,7 +78,6 @@ export default function PaymentInput() {
     { id: 'sosial', label: 'Dana Sosial', defaultAmount: 10000 },
     { id: 'cuti', label: 'Cuti', defaultAmount: 100000 },
     { id: 'wisuda', label: 'Wisuda', defaultAmount: 980000 },
-    { id: 'lainnya', label: 'Lainnya', defaultAmount: 0, isManual: true },
   ];
 
   useEffect(() => {
@@ -346,12 +345,29 @@ export default function PaymentInput() {
                     <label className="text-[10px] font-black text-outline uppercase tracking-widest mb-2 block ml-4">Metode Bayar</label>
                     <select 
                       className="w-full h-16 px-6 pr-12 rounded-2xl bg-surface-container text-on-surface font-bold text-sm appearance-none outline-none focus:ring-4 focus:ring-primary/10 transition-all border border-outline-variant/10 focus:border-transparent"
-                      value={formData.method}
-                      onChange={e => setFormData({...formData, method: e.target.value})}
+                      value={formData.method === 'Transfer Bank' ? `Transfer Bank - ${formData.bankName || 'Mandiri'}` : formData.method}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val.startsWith('Transfer Bank - ')) {
+                          const bank = val.replace('Transfer Bank - ', '');
+                          setFormData({
+                            ...formData,
+                            method: 'Transfer Bank',
+                            bankName: bank
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            method: val,
+                            bankName: ''
+                          });
+                        }
+                      }}
                     >
                        <option className="bg-surface-container text-on-surface font-bold" value="Cash">Cash / Tunai</option>
-                       <option className="bg-surface-container text-on-surface font-bold" value="Transfer Bank">Transfer Bank</option>
-                       <option className="bg-surface-container text-on-surface font-bold" value="Voucher">Voucher / Subsidi</option>
+                       <option className="bg-surface-container text-on-surface font-bold" value="Transfer Bank - Mandiri">Transfer Bank - Mandiri</option>
+                       <option className="bg-surface-container text-on-surface font-bold" value="Transfer Bank - BRI">Transfer Bank - BRI</option>
+                       <option className="bg-surface-container text-on-surface font-bold" value="Transfer Bank - BCA">Transfer Bank - BCA</option>
                     </select>
                     <ChevronDown className="absolute right-4 bottom-5 w-4 h-4 text-outline pointer-events-none" />
                  </div>
@@ -411,18 +427,7 @@ export default function PaymentInput() {
                })}
             </div>
             
-            <div className="mt-8 sm:mt-10 pt-8 sm:pt-10 border-t border-outline-variant/10">
-               <div className="space-y-3 sm:space-y-4 max-w-md">
-                  <label className="text-[10px] font-black text-outline uppercase tracking-widest ml-4">Voucher / Potongan (Rp)</label>
-                  <input 
-                    type="number"
-                    value={formData.discount || ''}
-                    onChange={e => setFormData({...formData, discount: Number(e.target.value)})}
-                    placeholder="Contoh: 75000"
-                    className="w-full h-12 sm:h-16 px-5 sm:px-6 rounded-2xl sm:rounded-3xl bg-surface-container font-bold text-error outline-none focus:ring-2 focus:ring-error/20 transition-all text-sm sm:text-base"
-                  />
-               </div>
-            </div>
+
           </section>
         </div>
 
@@ -449,10 +454,7 @@ export default function PaymentInput() {
                     <span>Subtotal</span>
                     <span>Rp {subtotal.toLocaleString('id-ID')}</span>
                  </div>
-                 <div className="flex justify-between text-xs text-red-300">
-                    <span>Diskon / Subsidi</span>
-                    <span>- Rp {formData.discount.toLocaleString('id-ID')}</span>
-                 </div>
+
               </div>
 
               <div className="mb-6 sm:mb-10">

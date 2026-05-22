@@ -97,21 +97,15 @@ export default function Arrears() {
 
   return (
     <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className="text-on-surface font-display text-3xl font-bold mb-1">Data Tunggakan</h2>
-          <p className="text-on-surface-variant text-base font-medium">Monitoring siswa yang belum menyelesaikan pembayaran.</p>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={exportToExcel}
-            className="bg-green-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-green-600/20 hover:scale-[1.02] transition-all"
-          >
-            <FileSpreadsheet className="w-5 h-5" />
-            <span>Export Excel</span>
-          </button>
-        </div>
-      </header>
+      <div className="flex justify-end gap-3 mb-6">
+        <button 
+          onClick={exportToExcel}
+          className="bg-green-600 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-green-600/10 hover:scale-[1.02] transition-all text-xs cursor-pointer"
+        >
+          <FileSpreadsheet className="w-4 h-4" />
+          <span>Export Excel</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-surface-container-low p-6 rounded-[32px] border border-outline-variant/10 shadow-sm hover:shadow-md hover:border-outline-variant/20 transition-all duration-300">

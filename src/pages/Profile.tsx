@@ -55,7 +55,7 @@ const compressAndResizeProfileImage = (file: File): Promise<{ blob: Blob, base64
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIM = 160; // Perfect for all avatars (crisp, yet extremely small profile size)
+        const MAX_DIM = 512; // High definition avatar (crisp, clear, perfect depth rendering)
         let width = img.width;
         let height = img.height;
 
@@ -78,12 +78,12 @@ const compressAndResizeProfileImage = (file: File): Promise<{ blob: Blob, base64
           ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob((blob) => {
             if (blob) {
-              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.95);
               resolve({ blob, base64: compressedBase64 });
             } else {
               reject(new Error('Canvas conversion to blob failed'));
             }
-          }, 'image/jpeg', 0.7);
+          }, 'image/jpeg', 0.95);
         } else {
           reject(new Error('Canvas focus context could not be created'));
         }
@@ -211,15 +211,21 @@ export default function Profile() {
         });
       }
 
-      // 2. Update Firestore user document with fully specified schema properties to satisfy Firestore security rules
+      // 2. Update Firestore user document with partial updates to prevent role overwrite
       const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        email: user.email || '',
+      console.log(`[ROLE DEBUG] Profile update initiated. Current state role value: ${role}. Updating only name and photoURL.`);
+      await updateDoc(userDocRef, {
         name: displayName,
-        role: role || 'staff',
         photoURL: finalPhotoURL
-      }, { merge: true }).catch(err => {
+      }).catch(async (updateErr) => {
+        console.warn("[ROLE DEBUG] updateDoc failed, falling back to setDoc with merge: true (excluding role field)...", updateErr);
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          email: user.email || '',
+          name: displayName,
+          photoURL: finalPhotoURL
+        }, { merge: true });
+      }).catch(err => {
         console.warn("Could not save to Firestore document (optional fallback for restricted quota/permissions):", err);
       });
 
@@ -281,12 +287,7 @@ export default function Profile() {
       animate="show"
       className="space-y-12 pb-20 max-w-4xl mx-auto"
     >
-      <motion.header variants={itemVariants}>
-        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block">Akun Pengguna</span>
-        <h2 className="text-on-surface font-display text-4xl font-bold min-h-[44px]">
-          <TypingText text="Profil Saya" />
-        </h2>
-      </motion.header>
+
 
       <div className="grid grid-cols-1 gap-8">
         {/* Unified Profile Card: Merging Photo Selector and Personal Details */}

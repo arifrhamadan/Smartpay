@@ -35,19 +35,15 @@ export default function AuditLogs() {
 
   return (
     <div className="space-y-8 pb-20">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h2 className="text-on-surface font-display text-3xl font-bold mb-1">Audit Logs</h2>
-          <p className="text-on-surface-variant text-base font-medium">Catatan aktivitas sistem untuk keamanan dan transparansi.</p>
-        </div>
+      <div className="flex justify-end gap-3 mb-6">
         <button 
           onClick={fetchLogs}
-          className="bg-surface-container-high text-on-surface px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-all"
+          className="bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-all text-xs cursor-pointer border border-outline-variant/10 shadow-xs"
         >
-          <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
-          <span>Refresh</span>
+          <RefreshCcw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+          <span>Refresh List</span>
         </button>
-      </header>
+      </div>
 
       <div className="bg-surface-container-lowest p-4 rounded-[32px] border border-outline-variant/10 shadow-sm">
         <div className="relative">
