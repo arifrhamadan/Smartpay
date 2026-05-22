@@ -26,7 +26,7 @@ import { cn } from '../lib/utils';
 import { useAuth, logoutUser } from '../lib/firebase';
 import { useTheme } from '../lib/theme';
 import { getQuotaStatus } from '../services/paymentService';
-import { TypingText } from './TypingText';
+import { PageHeader } from './PageHeader';
 
 const pageConfigs: Record<string, { title: string; subtitle: string }> = {
   '/dashboard': {
@@ -38,7 +38,7 @@ const pageConfigs: Record<string, { title: string; subtitle: string }> = {
     subtitle: 'Kelola data registrasi, kelas, dan status keaktifan siswa.',
   },
   '/payments': {
-    title: 'Input Pembayaran 💳',
+    title: 'Multi-Item Payment 💳',
     subtitle: 'Input beberapa transaksi dan tagihan dengan aman.',
   },
   '/arrears': {
@@ -486,7 +486,7 @@ export default function Layout() {
               };
             };
             const config = getPageConfig(location.pathname);
-            const userShortName = user?.displayName?.split(' ')[0] || 'User';
+            const isDashboardRoute = location.pathname === '/dashboard';
 
             return (
               <motion.div 
@@ -500,16 +500,14 @@ export default function Layout() {
                 <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-primary/8 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
                 <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-36 h-36 bg-secondary/8 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-1000"></div>
 
-                <div className="relative z-10 space-y-2.5">
-                  <span className="flex items-center gap-2 text-primary font-display font-black text-xs sm:text-sm uppercase tracking-widest leading-none">
-                    Hi, {userShortName} <span className="animate-bounce">👋</span>
-                  </span>
-                  <h2 className="text-on-surface font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight leading-none min-h-[40px] sm:min-h-[48px] py-1 flex items-center">
-                    <TypingText text={config.title} speed={50} />
-                  </h2>
-                  <p className="text-on-surface-variant font-medium text-xs sm:text-sm md:text-base opacity-85 leading-relaxed max-w-2xl">
-                    {config.subtitle}
-                  </p>
+                <div className="relative z-10">
+                  <PageHeader 
+                    title={config.title}
+                    subtitle={config.subtitle}
+                    showGreeting={isDashboardRoute}
+                    userDisplayName={user?.displayName || 'User'}
+                    isDashboard={isDashboardRoute}
+                  />
                 </div>
               </motion.div>
             );
