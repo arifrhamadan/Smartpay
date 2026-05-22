@@ -18,7 +18,8 @@ import {
   Sun,
   Moon,
   Monitor,
-  Lock
+  Lock,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -69,6 +70,42 @@ export default function Layout() {
   const [isBannerDismissed, setIsBannerDismissed] = React.useState(
     sessionStorage.getItem('smartpay_quota_dismissed') === 'true'
   );
+
+  // PWA standalone installation trackers
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [isIOS, setIsIOS] = React.useState(false);
+  const [isStandalone, setIsStandalone] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // iOS and standalone mode checks
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isIOSDevice);
+    
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsStandalone(!!isStandaloneMode);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`PWA Installation outcome: ${outcome}`);
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   React.useEffect(() => {
     setIsQuotaExceeded(getQuotaStatus());
@@ -145,8 +182,8 @@ export default function Layout() {
       {/* Mobile Top Bar */}
       <header className="lg:hidden flex justify-between items-center w-full px-4 h-16 bg-surface-container-lowest border-b border-outline-variant/10 shadow-sm sticky top-0 z-50 transition-colors">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white overflow-hidden shadow-lg shadow-primary/20">
-            <School className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center overflow-hidden shadow-xs border border-outline-variant/10">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover animate-pulse" referrerPolicy="no-referrer" />
           </div>
           <span className="text-primary font-display font-bold text-lg tracking-tight">SMART PAY</span>
         </div>
@@ -206,8 +243,8 @@ export default function Layout() {
       <header className="hidden lg:flex justify-between items-center w-full px-12 h-20 bg-surface-container-lowest border-b border-outline-variant/10 shadow-sm fixed top-0 left-0 z-40 transition-colors">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary rounded-xl text-white shadow-lg shadow-primary/20">
-              <School className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center overflow-hidden shadow-xs border border-outline-variant/10">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <h1 className="text-primary font-display text-2xl font-bold tracking-tight">SMART PAY SYSTEM</h1>
           </div>
@@ -278,7 +315,7 @@ export default function Layout() {
         "hidden lg:flex fixed left-0 top-20 h-[calc(100vh-80px)] bg-surface-container-low flex-col p-6 border-r border-outline-variant/10 transition-all duration-300 z-30",
         isCollapsed ? "w-20" : "w-72"
       )}>
-        <div className="space-y-1 mt-4 overflow-y-auto max-h-[calc(100vh-140px)] no-scrollbar flex-1">
+        <div className="space-y-1 mt-4 overflow-y-auto max-h-[calc(100vh-220px)] no-scrollbar flex-1">
           {!isCollapsed && <p className="px-4 text-[10px] text-outline font-black uppercase tracking-[0.2em] mb-4 opacity-50">Menu Operasional</p>}
           {filteredNavItems.map((item) => (
             <NavLink
@@ -309,6 +346,29 @@ export default function Layout() {
             </NavLink>
           ))}
         </div>
+
+        {/* PWA Install Banner */}
+        {((deferredPrompt || (isIOS && !isStandalone)) && !isCollapsed) && (
+          <div className="mt-auto p-4 rounded-2xl bg-primary/10 border border-primary/20 text-center relative z-10 flex flex-col items-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2 shadow-sm">
+              <Smartphone className="w-5 h-5 animate-bounce" />
+            </div>
+            <p className="font-bold text-xs text-on-surface leading-tight">Install SMART PAY</p>
+            <p className="text-[10px] text-outline mt-1 mb-3">Pasang di perangkat untuk akses instan & offline</p>
+            {isIOS ? (
+              <button 
+                onClick={() => alert('Untuk iOS (Safari):\n1. Ketuk tombol "Bagikan" (Share) di Safari di bar bawah.\n2. Gulir ke bawah lalu ketuk "Tambahkan ke Layar Utama" (Add to Home Screen).')}
+                className="w-full text-[10px] bg-primary hover:bg-primary-container text-white hover:text-on-primary-container font-black py-2 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                PANDUAN IOS 📱
+              </button>
+            ) : (
+              <button onClick={handleInstallClick} className="w-full text-[10px] bg-primary hover:bg-primary-container text-white hover:text-on-primary-container font-black py-2 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer">
+                PASANG SEKARANG ⚡
+              </button>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -330,7 +390,9 @@ export default function Layout() {
               className="fixed inset-y-0 left-0 w-80 bg-surface-container-lowest z-50 lg:hidden flex flex-col p-6 shadow-2xl"
             >
               <div className="flex items-center gap-3 mb-10">
-                <School className="text-primary w-10 h-10" fill="currentColor" />
+                <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center overflow-hidden shadow-xs border border-outline-variant/10">
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
                 <span className="text-primary font-display font-bold text-xl tracking-tight">SMART PAY</span>
               </div>
               <div className="space-y-2 overflow-y-auto flex-1 no-scrollbar">
@@ -351,6 +413,29 @@ export default function Layout() {
                   </NavLink>
                 ))}
               </div>
+
+              {/* Mobile Install Option */}
+              {((deferredPrompt || (isIOS && !isStandalone))) && (
+                <div className="mt-auto p-4 rounded-2xl bg-primary/5 border border-primary/10 text-center relative z-10 flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                    <Smartphone className="w-4.5 h-4.5" />
+                  </div>
+                  <p className="font-bold text-xs text-on-surface leading-tight">Aplikasi SMART PAY Mobile</p>
+                  <p className="text-[9px] text-outline mt-0.5 mb-2.5">Pasang aplikasi ini di Android atau iOS Anda</p>
+                  {isIOS ? (
+                    <button 
+                      onClick={() => alert('Untuk iOS (Safari):\n1. Ketuk tombol "Bagikan" (Share) di Safari di bar bawah.\n2. Gulir ke bawah lalu ketuk "Tambahkan ke Layar Utama" (Add to Home Screen).')}
+                      className="w-full text-[9px] bg-primary text-white font-black py-1.5 rounded-lg active:scale-95 cursor-pointer"
+                    >
+                      PANDUAN IOS 📱
+                    </button>
+                  ) : (
+                    <button onClick={handleInstallClick} className="w-full text-[9px] bg-primary text-white font-black py-1.5 rounded-lg active:scale-95 cursor-pointer">
+                      PASANG SEKARANG ⚡
+                    </button>
+                  )}
+                </div>
+              )}
 
             </motion.div>
           </>

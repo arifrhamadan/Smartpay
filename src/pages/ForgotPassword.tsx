@@ -38,8 +38,8 @@ export default function ForgotPassword() {
       >
         <div className="bg-surface-container-lowest p-8 md:p-10 rounded-[40px] shadow-2xl border border-outline-variant/10">
           <div className="text-center mb-8">
-            <div className="inline-flex p-4 rounded-3xl bg-secondary-container/30 text-secondary mb-6">
-              <School className="w-10 h-10" />
+            <div className="inline-flex w-20 h-20 rounded-[24px] bg-surface-container overflow-hidden shadow-xs border border-outline-variant/15 mb-6">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <h1 className="text-2xl font-display font-extrabold text-on-surface">Lupa Password?</h1>
             <p className="text-on-surface-variant font-medium mt-2">Masukkan email Anda untuk menerima instruksi reset password.</p>

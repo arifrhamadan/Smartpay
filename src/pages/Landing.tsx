@@ -136,9 +136,9 @@ export default function Landing() {
             <motion.div 
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
-              className="inline-flex p-5 rounded-[28px] bg-primary text-white shadow-xl shadow-primary/30 mb-8"
+              className="inline-flex w-24 h-24 rounded-[28px] bg-surface-container overflow-hidden shadow-md border border-outline-variant/15 mb-8"
             >
-              <School className="w-12 h-12" />
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </motion.div>
             <h1 className="text-3xl md:text-4xl font-display font-extrabold text-on-surface tracking-tight mb-3">Selamat Datang</h1>
             <p className="text-on-surface-variant font-medium">Masuk ke Sistem PAUD Smart Education</p>
