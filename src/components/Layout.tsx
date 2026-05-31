@@ -71,6 +71,34 @@ export default function Layout() {
     sessionStorage.getItem('smartpay_quota_dismissed') === 'true'
   );
 
+  const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+  const [showStatusToast, setShowStatusToast] = React.useState(false);
+  const [toastType, setToastType] = React.useState<'online' | 'offline'>('online');
+
+  React.useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setToastType('online');
+      setShowStatusToast(true);
+      const timer = setTimeout(() => setShowStatusToast(false), 5000);
+      return () => clearTimeout(timer);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setToastType('offline');
+      setShowStatusToast(true);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // PWA standalone installation trackers
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isIOS, setIsIOS] = React.useState(false);
@@ -137,7 +165,7 @@ export default function Layout() {
   ];
 
   const filteredNavItems = navItems.filter(item => {
-    return item.roles.includes(role || 'staff');
+    return role ? item.roles.includes(role) : false;
   });
 
   const handleLogout = async () => {
@@ -179,6 +207,33 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col lg:flex-row transition-colors duration-300">
+      <AnimatePresence>
+        {showStatusToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+              "fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3.5 rounded-full shadow-lg font-bold text-xs flex items-center gap-2.5 max-w-[90vw] md:max-w-md backdrop-blur-xl border select-none",
+              toastType === 'online'
+                ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/20"
+                : "bg-red-500/15 text-red-500 border-red-500/20"
+            )}
+          >
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", toastType === 'online' ? "bg-emerald-400" : "bg-red-400")}></span>
+              <span className={cn("relative inline-flex rounded-full h-2 w-2", toastType === 'online' ? "bg-emerald-500" : "bg-red-500")}></span>
+            </span>
+            <span>
+              {toastType === 'online' 
+                ? "Online! Seluruh data tersinkronisasi kembali secara realtime." 
+                : "Koneksi terputus! Mode offline diaktifkan otomatis."}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Mobile Top Bar */}
       <header className="lg:hidden flex justify-between items-center w-full px-4 h-16 bg-surface-container-lowest border-b border-outline-variant/10 shadow-sm sticky top-0 z-50 transition-colors">
         <div className="flex items-center gap-3">
@@ -269,7 +324,7 @@ export default function Layout() {
               <CrispAvatar src={user?.photoURL} name={user?.displayName} email={user?.email} sizeClassName="w-10 h-10 transition-transform group-hover:scale-95" />
               <div className="text-left">
                 <p className="text-on-surface font-bold text-sm leading-tight">{user?.displayName || 'User Admin'}</p>
-                <p className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">{(role || 'Staff').replace('_', ' ')}</p>
+                <p className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">{role ? role.replace('_', ' ') : 'Memuat...'}</p>
               </div>
             </button>
             <AnimatePresence>

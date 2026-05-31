@@ -85,11 +85,14 @@ export default function PaymentInput() {
       setStudents(data);
     });
     
-    configService.getConfig().then(cfg => {
+    const unsubscribeConfig = configService.listenConfig(cfg => {
       setConfig(cfg);
     });
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeConfig();
+    };
   }, []);
 
   const isMonthLocked = config?.lockedMonths?.includes(formData.month);

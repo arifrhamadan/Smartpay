@@ -84,8 +84,7 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         isRole(['owner']) ||
         (request.auth.uid == userId && 
-         isValidUser(incoming()) && 
-         incoming().role == existing().role)
+         (!('role' in request.resource.data) || !('role' in resource.data) || request.resource.data.role == resource.data.role))
       );
     }
 

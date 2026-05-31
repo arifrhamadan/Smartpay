@@ -2,34 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { School, User, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
-import { loginUser } from '../lib/firebase';
-
-const DEMO_ACCOUNTS = [
-  {
-    role: 'owner',
-    email: 'owner@smartpay.com',
-    password: 'password123',
-    name: 'Bambang Hariyanto',
-    icon: '👑',
-    roleLabel: 'Owner'
-  },
-  {
-    role: 'ketua_unit',
-    email: 'ketua@smartpay.com',
-    password: 'password123',
-    name: 'Aditya Pratama',
-    icon: '🎓',
-    roleLabel: 'Ketua Unit'
-  },
-  {
-    role: 'staff',
-    email: 'staff@smartpay.com',
-    password: 'password123',
-    name: 'Siti Rahma',
-    icon: '💼',
-    roleLabel: 'Staff'
-  }
-];
+import { loginUser, db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -44,38 +18,34 @@ export default function Landing() {
     setIsLoading(true);
     setError(null);
 
-    const matchedDemo = DEMO_ACCOUNTS.find(
-      acc => acc.email.toLowerCase() === email.trim().toLowerCase()
-    );
-
     try {
-      await loginUser(email, password);
-      if (matchedDemo) {
-        localStorage.setItem(`smartpay_role_demo`, matchedDemo.role);
-        localStorage.setItem('userRole', matchedDemo.role);
+      const userCredential = await loginUser(email, password);
+      const loggedUser = userCredential.user;
+      
+      // Query the database role immediately and set the caches to prevent any empty/loading sync delays
+      try {
+        const userDocRef = doc(db, 'users', loggedUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const fetchedRole = data.role as any;
+          const fetchedName = data.name || data.displayName || '';
+          const fetchedPhoto = data.photoURL || '';
+
+          if (fetchedRole) {
+            localStorage.setItem(`smartpay_role_${loggedUser.uid}`, fetchedRole);
+            localStorage.setItem('userRole', fetchedRole);
+          }
+          if (fetchedName) localStorage.setItem(`smartpay_name_${loggedUser.uid}`, fetchedName);
+          if (fetchedPhoto) localStorage.setItem(`smartpay_photo_${loggedUser.uid}`, fetchedPhoto);
+        }
+      } catch (dbErr) {
+        console.warn("Landing: Failed to pre-cache Firestore user on login:", dbErr);
       }
       navigate('/dashboard');
     } catch (err: any) {
-      console.warn("Real Firebase sign-in failed, checking for offline demo/guest fallback:", err);
+      console.warn("Firebase sign-in failed:", err);
       
-      // Check if this matched standard demo credentials
-      if (matchedDemo && password === matchedDemo.password) {
-        const guestUser = {
-          uid: `demo-guest-${matchedDemo.role}`,
-          email: matchedDemo.email,
-          displayName: matchedDemo.name,
-          role: matchedDemo.role,
-          photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${matchedDemo.name}`
-        };
-        localStorage.setItem('smartpay_guest_user', JSON.stringify(guestUser));
-        localStorage.setItem(`smartpay_name_${guestUser.uid}`, guestUser.displayName);
-        localStorage.setItem(`smartpay_role_${guestUser.uid}`, guestUser.role);
-        localStorage.setItem('userRole', guestUser.role);
-        
-        navigate('/dashboard');
-        return;
-      }
-
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError("Email atau password tidak sesuai.");
       } else if (err.code === 'auth/operation-not-allowed') {
@@ -83,38 +53,6 @@ export default function Landing() {
       } else {
         setError("Gagal masuk: " + (err.message || "Silakan coba lagi nanti."));
       }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (demo: typeof DEMO_ACCOUNTS[0]) => {
-    setEmail(demo.email);
-    setPassword(demo.password);
-    setIsLoading(true);
-    setError(null);
-    try {
-      await loginUser(demo.email, demo.password);
-      localStorage.setItem(`smartpay_role_demo`, demo.role);
-      localStorage.setItem('userRole', demo.role);
-      navigate('/dashboard');
-    } catch (err: any) {
-      console.warn("Real login for preset failed, activating guest state bypass:", err);
-      const guestUser = {
-        uid: `demo-guest-${demo.role}`,
-        email: demo.email,
-        displayName: demo.name,
-        role: demo.role,
-        photoURL: `https://api.dicebear.com/7.x/adventurer/svg?seed=${demo.name}`
-      };
-      localStorage.setItem('smartpay_guest_user', JSON.stringify(guestUser));
-      localStorage.setItem(`smartpay_name_${guestUser.uid}`, guestUser.displayName);
-      localStorage.setItem(`smartpay_role_${guestUser.uid}`, guestUser.role);
-      localStorage.setItem('userRole', guestUser.role);
-      // Wait briefly for local storage effects
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100);
     } finally {
       setIsLoading(false);
     }
@@ -223,34 +161,6 @@ export default function Landing() {
               )}
             </motion.button>
           </form>
-
-          {/* Premium Quick Login Divider & Section */}
-          <div className="mt-8 pt-8 border-t border-outline-variant/10">
-            <p className="text-center text-xs font-black text-on-surface-variant/60 uppercase tracking-widest mb-4">
-              Pilih Akun Demo (Quick Login)
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              {DEMO_ACCOUNTS.map((demo) => (
-                <button
-                  key={demo.role}
-                  onClick={() => handleQuickLogin(demo)}
-                  type="button"
-                  disabled={isLoading}
-                  className="flex flex-col items-center justify-center p-3 rounded-2xl bg-surface-container hover:bg-primary/5 border border-transparent hover:border-primary/20 transition-all text-center focus:outline-none cursor-pointer group"
-                >
-                  <span className="text-2xl mb-1 group-hover:scale-110 transition-transform duration-300 select-none">
-                    {demo.icon}
-                  </span>
-                  <span className="text-xs font-bold text-on-surface leading-tight">
-                    {demo.roleLabel}
-                  </span>
-                  <span className="text-[9px] font-medium text-outline truncate w-full mt-0.5">
-                    {demo.name.split(' ')[0]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <p className="mt-10 text-center text-on-surface-variant font-medium text-sm">
             Belum punya akun?{' '}

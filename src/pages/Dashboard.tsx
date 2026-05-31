@@ -11,7 +11,7 @@ import {
   ResponsiveContainer, Cell, AreaChart, Area
 } from 'recharts';
 import { paymentService, studentService } from '../services/paymentService';
-import { useAuth } from '../lib/firebase';
+import { useAuth, logoutUser } from '../lib/firebase';
 import { Link, useNavigate } from 'react-router-dom';
 import { SummaryCardsSection, InteractiveDashboardChart } from '../components/DashboardChartsAndCards';
 import { cn } from '../lib/utils';
@@ -529,7 +529,7 @@ export default function Dashboard() {
   const [totalIncome, setTotalIncome] = useState(0);
   const [payments, setPayments] = useState<any[]>([]);
   const [studentCount, setStudentCount] = useState(0);
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, error, refreshRole } = useAuth();
 
   useEffect(() => {
     studentService.seedStudentsIfEmpty();
@@ -572,12 +572,51 @@ export default function Dashboard() {
           </motion.div>
         )}
         {!role && user && (
-          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6">
-            <div className="w-16 h-16 border-8 border-primary border-t-transparent rounded-full animate-spin shadow-2xl shadow-primary/20"></div>
-            <div className="text-center">
-              <h3 className="text-2xl font-display font-bold text-on-surface">Menyelaraskan Sesi...</h3>
-              <p className="text-sm text-on-surface-variant font-medium mt-2">Mempersiapkan hak akses dan dashboard personal Anda.</p>
-            </div>
+          <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 p-6 max-w-lg mx-auto text-center animate-in fade-in duration-300">
+            {error ? (
+              <div className="space-y-6 bg-error-container/10 p-8 rounded-[32px] border border-red-500/10">
+                <div className="w-14 h-14 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-display font-black text-on-surface">Gagal Menyelaraskan Sesi</h3>
+                  <p className="text-sm text-on-surface-variant leading-relaxed mt-2 max-w-sm mx-auto">
+                    {error.includes("belum terdaftar") 
+                      ? "Akun Anda terdeteksi masuk, namun detail profil (role) di database belum terdaftar. Silakan hubungi admin sekolah (Owner)." 
+                      : error}
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+                  <button 
+                    onClick={() => refreshRole()}
+                    className="px-6 py-3 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 text-sm cursor-pointer"
+                  >
+                    Coba Lagi
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        await logoutUser();
+                        window.location.href = '/login';
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    className="px-6 py-3 bg-surface-container border border-outline-variant/20 hover:bg-surface-container-high font-bold rounded-xl transition-all text-on-surface active:scale-95 text-sm cursor-pointer"
+                  >
+                    Keluar Sesi
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="w-16 h-16 border-8 border-primary border-t-transparent rounded-full animate-spin shadow-2xl shadow-primary/20"></div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-display font-bold text-on-surface">Menyelaraskan Sesi...</h3>
+                  <p className="text-sm text-on-surface-variant font-medium mt-2">Mempersiapkan hak akses dan dashboard personal Anda.</p>
+                </div>
+              </>
+            )}
           </div>
         )}
         {!user && !loading && (

@@ -10,15 +10,13 @@ export default function AuditLogs() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
     setLoading(true);
-    const data = await auditLogService.getLogs();
-    setLogs(data || []);
-    setLoading(false);
-  };
+    const unsubscribe = auditLogService.listenLogs((data) => {
+      setLogs(data || []);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const filteredLogs = logs.filter(log => 
     log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -36,13 +34,13 @@ export default function AuditLogs() {
   return (
     <div className="space-y-8 pb-20">
       <div className="flex justify-end gap-3 mb-6">
-        <button 
-          onClick={fetchLogs}
-          className="bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-all text-xs cursor-pointer border border-outline-variant/10 shadow-xs"
-        >
-          <RefreshCcw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-          <span>Refresh List</span>
-        </button>
+        <div className="bg-emerald-500/10 text-emerald-500 px-4 py-2.5 rounded-full font-bold flex items-center gap-2 text-xs border border-emerald-500/20 select-none">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Realtime Terkoneksi</span>
+        </div>
       </div>
 
       <div className="bg-surface-container-lowest p-4 rounded-[32px] border border-outline-variant/10 shadow-sm">

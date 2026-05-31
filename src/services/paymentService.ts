@@ -166,6 +166,29 @@ export const auditLogService = {
       }
       handleFirestoreError(error, OperationType.LIST, path);
     }
+  },
+
+  listenLogs(callback: (logs: any[]) => void) {
+    const initialCache = getLocalCache('audit_logs');
+    callback(initialCache);
+
+    const path = 'audit_logs';
+    const q = query(collection(db, path), orderBy('timestamp', 'desc'));
+    const unsubscribeFirebase = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      saveLocalCache('audit_logs', data);
+      callback(data);
+    }, (error) => {
+      if (isQuotaError(error)) {
+        setQuotaStatus(true);
+        const cache = getLocalCache('audit_logs');
+        callback(cache);
+      } else {
+        console.warn("Firestore listenLogs failed:", error);
+      }
+    });
+
+    return unsubscribeFirebase;
   }
 };
 
@@ -207,6 +230,49 @@ export const configService = {
       }
       return defaultValue;
     }
+  },
+
+  listenConfig(callback: (config: any) => void) {
+    const defaultValue = { 
+      lockedMonths: [], 
+      version: '1.2.0',
+      prices: {
+        wisuda: 500000,
+        seragam: 350000,
+        kegiatan: 200000,
+        sosial: 10000
+      }
+    };
+    const cached = localStorage.getItem('smartpay_cache_config');
+    callback(cached ? JSON.parse(cached) : defaultValue);
+
+    const unsubscribe = onSnapshot(doc(db, 'app_config', 'main'), (docSnap) => {
+      if (docSnap.exists()) {
+        const configData = { 
+          prices: {
+            wisuda: 500000,
+            seragam: 350000,
+            kegiatan: 200000,
+            sosial: 10000
+          },
+          ...docSnap.data() 
+        };
+        localStorage.setItem('smartpay_cache_config', JSON.stringify(configData));
+        callback(configData);
+      } else {
+        callback(defaultValue);
+      }
+    }, (error) => {
+      if (isQuotaError(error)) {
+        setQuotaStatus(true);
+        const latestCached = localStorage.getItem('smartpay_cache_config');
+        callback(latestCached ? JSON.parse(latestCached) : defaultValue);
+      } else {
+        console.warn("Firestore listenConfig failed:", error);
+      }
+    });
+
+    return unsubscribe;
   },
 
   async updateConfig(data: any) {

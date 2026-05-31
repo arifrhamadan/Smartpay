@@ -40,7 +40,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: ReactNode, allow
   
   if (!user) return <Navigate to="/login" replace />;
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     return <Navigate to="/dashboard" replace />;
   }
   
